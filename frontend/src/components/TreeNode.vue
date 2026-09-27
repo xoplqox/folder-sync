@@ -205,6 +205,7 @@ async function doDelete() {
   padding: 0.35rem 0.5rem;
   border-radius: 6px;
   cursor: default;
+  min-width: 22rem;
 }
 
 .node.folder > .row {

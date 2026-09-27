@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { cancelBatch, getBatch, queueBatchAction, removeBatchAction, removeBatchGroup, startBatch } from "../api/client";
 import type { BatchAction, BatchRun, QueueRequest } from "../types/batch";
 import type { ProgressEvent } from "../api/ws";
+import { useToastStore } from "./toast";
 
 interface BatchState {
   actions: BatchAction[];
@@ -10,6 +11,10 @@ interface BatchState {
   error: string | null;
   lastSkippedConflicts: string[];
   lastCompleted: { succeeded: number; failed: number } | null;
+}
+
+function errorMessage(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
 }
 
 export const useBatchStore = defineStore("batch", {
@@ -34,6 +39,14 @@ export const useBatchStore = defineStore("batch", {
     handleEvent(event: ProgressEvent) {
       if (event.type === "run_completed") {
         this.lastCompleted = { succeeded: event.succeeded, failed: event.failed };
+        const toast = useToastStore();
+        if (event.failed > 0) {
+          toast.push(`Batch abgeschlossen: ${event.succeeded} erfolgreich, ${event.failed} fehlgeschlagen.`, "error", 8000);
+        } else {
+          toast.push(`Batch abgeschlossen: ${event.succeeded} erfolgreich.`, "success");
+        }
+      } else if (event.type === "run_cancelled") {
+        useToastStore().push("Batch abgebrochen. Verbleibende Aktionen bleiben geplant.", "info");
       }
     },
     async fetch() {
@@ -42,7 +55,7 @@ export const useBatchStore = defineStore("batch", {
       try {
         this.applyRun(await getBatch());
       } catch (e) {
-        this.error = e instanceof Error ? e.message : String(e);
+        this.error = errorMessage(e);
       } finally {
         this.loading = false;
       }
@@ -56,7 +69,7 @@ export const useBatchStore = defineStore("batch", {
         this.lastSkippedConflicts = res.skipped_conflicts;
         return res.skipped_conflicts.length;
       } catch (e) {
-        this.error = e instanceof Error ? e.message : String(e);
+        this.error = errorMessage(e);
         throw e;
       }
     },
@@ -65,7 +78,8 @@ export const useBatchStore = defineStore("batch", {
       try {
         this.applyRun(await removeBatchAction(id));
       } catch (e) {
-        this.error = e instanceof Error ? e.message : String(e);
+        this.error = errorMessage(e);
+        useToastStore().push(this.error, "error");
         throw e;
       }
     },
@@ -74,7 +88,8 @@ export const useBatchStore = defineStore("batch", {
       try {
         this.applyRun(await removeBatchGroup(groupId));
       } catch (e) {
-        this.error = e instanceof Error ? e.message : String(e);
+        this.error = errorMessage(e);
+        useToastStore().push(this.error, "error");
         throw e;
       }
     },
@@ -83,7 +98,8 @@ export const useBatchStore = defineStore("batch", {
       try {
         await startBatch();
       } catch (e) {
-        this.error = e instanceof Error ? e.message : String(e);
+        this.error = errorMessage(e);
+        useToastStore().push(this.error, "error");
         throw e;
       }
     },
@@ -92,7 +108,8 @@ export const useBatchStore = defineStore("batch", {
       try {
         await cancelBatch();
       } catch (e) {
-        this.error = e instanceof Error ? e.message : String(e);
+        this.error = errorMessage(e);
+        useToastStore().push(this.error, "error");
         throw e;
       }
     },

@@ -113,10 +113,16 @@ async function setMode(mode: ComparisonMode) {
 
 .root-list {
   margin: 0;
-  padding: 0;
+  padding: 0.5rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 0.5rem;
+  overflow-x: auto;
+}
+
+@media (max-width: 30rem) {
+  .tree-view {
+    padding: 1.25rem 0.75rem 3rem;
+  }
 }
 </style>

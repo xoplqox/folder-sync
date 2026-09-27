@@ -12,6 +12,7 @@
     </button>
 
     <BatchQueueDrawer :open="drawerOpen" @close="drawerOpen = false" />
+    <ToastContainer />
   </div>
 </template>
 
@@ -21,6 +22,7 @@ import { useBatchStore } from "./stores/batch";
 import { useConfigStore } from "./stores/config";
 import { connectBatchEvents } from "./api/ws";
 import BatchQueueDrawer from "./components/BatchQueueDrawer.vue";
+import ToastContainer from "./components/ToastContainer.vue";
 
 const batch = useBatchStore();
 const config = useConfigStore();

@@ -71,4 +71,13 @@ const title = computed(() => `Clone ${props.clone}: ${labels[props.state]}`);
   border-color: var(--border);
   border-style: dashed;
 }
+
+/* Folder rollup badges are aggregates over a whole subtree, not an exact
+   per-file match — a dotted border hints at that without changing the
+   color language shared with file badges. */
+.state-identical,
+.state-partially_differs,
+.state-partially_missing {
+  border-style: dotted;
+}
 </style>

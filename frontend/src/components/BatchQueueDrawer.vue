@@ -7,7 +7,9 @@
         <button class="close-btn" @click="$emit('close')">✕</button>
       </header>
 
-      <p v-if="batch.actions.length === 0" class="empty">
+      <p v-if="batch.loading && batch.actions.length === 0" class="empty">Lade …</p>
+
+      <p v-else-if="batch.actions.length === 0" class="empty">
         Keine geplanten Aktionen. Klicke im Verzeichnisbaum auf Sync- oder
         Löschen-Aktionen, um sie hier einzureihen.
       </p>
