@@ -426,6 +426,29 @@ mod tests {
     }
 
     #[test]
+    fn hash_mode_catches_same_size_different_content_that_basic_mode_misses() {
+        let dir = tempdir().unwrap();
+        // Same size, different bytes: basic mode can't tell these apart.
+        write(&dir.path().join("Daten_1a/f.bin"), b"AAAA");
+        write(&dir.path().join("Daten_1b/f.bin"), b"ZZZZ");
+
+        let groups = scan_drives(dir.path()).unwrap();
+        let group = groups.into_iter().find(|g| g.key.name == "Daten").unwrap();
+
+        let basic = build_merged_tree(&group, ComparisonMode::NameSize, None).unwrap();
+        let f_basic = basic.root.children.iter().find(|n| n.name == "f.bin").unwrap();
+        assert!(f_basic.clones.iter().all(|c| c.state == MatchState::Present));
+
+        let hasher = |path: &Path, _size: u64, _mtime: SystemTime| crate::hash::hash_file(path).ok();
+        let hasher_ref: Option<&HashFn> = Some(&hasher);
+        let advanced = build_merged_tree(&group, ComparisonMode::NameSizeHash, hasher_ref).unwrap();
+        let f_advanced = advanced.root.children.iter().find(|n| n.name == "f.bin").unwrap();
+        let b_status = f_advanced.clones.iter().find(|c| c.clone == "b").unwrap();
+        assert_eq!(b_status.state, MatchState::Differs);
+        assert!(b_status.hash.is_some());
+    }
+
+    #[test]
     fn empty_folder_rolls_up_as_empty_not_missing() {
         let dir = tempdir().unwrap();
         std::fs::create_dir_all(dir.path().join("Daten_1a/empty_dir")).unwrap();

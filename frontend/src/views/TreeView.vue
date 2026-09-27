@@ -2,21 +2,29 @@
   <main class="tree-view">
     <Breadcrumb :current="`${name}_${number}`" />
 
+    <div class="mode-toggle" role="group" aria-label="Vergleichsmodus">
+      <button
+        class="mode-btn"
+        :class="{ active: config.comparisonMode === 'name_size' }"
+        :disabled="config.loading"
+        @click="setMode('name_size')"
+      >
+        Name + Größe
+      </button>
+      <button
+        class="mode-btn"
+        :class="{ active: config.comparisonMode === 'name_size_hash' }"
+        :disabled="config.loading"
+        @click="setMode('name_size_hash')"
+      >
+        + Hash (erweitert)
+      </button>
+    </div>
+
     <p v-if="tree.loading" class="status">Lade Verzeichnisbaum …</p>
     <p v-else-if="tree.error" class="status error">{{ tree.error }}</p>
 
     <template v-else-if="tree.tree">
-      <div class="legend">
-        <span
-          >Modus:
-          {{
-            tree.tree.comparison_mode === "name_size_hash"
-              ? "Name + Größe + Hash"
-              : "Name + Größe"
-          }}</span
-        >
-      </div>
-
       <ul v-if="tree.tree.root.children.length" class="root-list">
         <TreeNode
           v-for="child in tree.tree.root.children"
@@ -32,6 +40,8 @@
 <script setup lang="ts">
 import { onMounted, watch } from "vue";
 import { useTreeStore } from "../stores/tree";
+import { useConfigStore } from "../stores/config";
+import type { ComparisonMode } from "../types/config";
 import Breadcrumb from "../components/Breadcrumb.vue";
 import TreeNode from "../components/TreeNode.vue";
 
@@ -41,13 +51,24 @@ const props = defineProps<{
 }>();
 
 const tree = useTreeStore();
+const config = useConfigStore();
 
-function load() {
-  tree.fetch(props.name, props.number);
+async function load() {
+  if (!config.loaded) {
+    await config.fetch();
+  }
+  await tree.fetch(props.name, props.number, config.comparisonMode);
 }
 
 onMounted(load);
 watch(() => [props.name, props.number], load);
+
+async function setMode(mode: ComparisonMode) {
+  if (mode === config.comparisonMode) return;
+  // Persists as the new default (per settings) and refreshes the current view.
+  await config.update({ comparison_mode: mode });
+  await tree.fetch(props.name, props.number, mode);
+}
 </script>
 
 <style scoped>
@@ -65,10 +86,29 @@ watch(() => [props.name, props.number], load);
   color: var(--state-missing);
 }
 
-.legend {
-  font-size: 0.8rem;
+.mode-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+}
+
+.mode-btn {
+  border: none;
+  background: var(--surface-raised);
   color: var(--text-muted);
-  margin-bottom: 1rem;
+  font-size: 0.8rem;
+  padding: 0.45rem 0.85rem;
+}
+
+.mode-btn:not(:last-child) {
+  border-right: 1px solid var(--border);
+}
+
+.mode-btn.active {
+  background: var(--accent);
+  color: #fff;
 }
 
 .root-list {
