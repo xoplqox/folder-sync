@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
+use folder_sync_core::batch::BatchQueue;
 use folder_sync_core::config::Config;
 use folder_sync_core::hash::HashCache;
 
@@ -12,6 +13,7 @@ pub struct AppStateInner {
     pub config_path: PathBuf,
     pub config: RwLock<Config>,
     pub hash_cache: HashCache,
+    pub batch_queue: BatchQueue,
 }
 
 impl AppState {
@@ -21,6 +23,7 @@ impl AppState {
             config_path,
             config: RwLock::new(config),
             hash_cache: HashCache::new(),
+            batch_queue: BatchQueue::new(),
         }))
     }
 

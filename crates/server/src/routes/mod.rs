@@ -1,3 +1,4 @@
+mod batch;
 mod config;
 mod drives;
 mod health;
@@ -13,4 +14,5 @@ pub fn api_router() -> Router<AppState> {
         .merge(config::router())
         .merge(drives::router())
         .merge(tree::router())
+        .merge(batch::router())
 }

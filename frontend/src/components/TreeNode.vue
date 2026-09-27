@@ -45,7 +45,33 @@
           :state="b.state"
         />
       </span>
+
+      <span class="node-actions" @click.stop>
+        <span v-if="hasConflict" class="conflict-pill" title="Konflikt: unterschiedliche Versionen vorhanden">
+          ⚠ Konflikt
+        </span>
+        <button
+          v-if="canSync"
+          class="action-btn"
+          title="In alle Clone synchronisieren"
+          :disabled="busy"
+          @click="doSync"
+        >
+          ⇄
+        </button>
+        <button
+          v-if="canDelete"
+          class="action-btn danger"
+          title="In allen Clonen löschen"
+          :disabled="busy"
+          @click="doDelete"
+        >
+          🗑
+        </button>
+      </span>
     </div>
+
+    <p v-if="feedback" class="feedback">{{ feedback }}</p>
 
     <ul v-if="node.kind === 'folder' && expanded" class="children">
       <TreeNode v-for="child in node.children" :key="child.rel_path" :node="child" />
@@ -55,14 +81,18 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useRoute } from "vue-router";
 import type { MergedNode } from "../types/tree";
 import CloneBadge from "./CloneBadge.vue";
+import { useBatchStore } from "../stores/batch";
 
 const props = defineProps<{
   node: MergedNode;
 }>();
 
 const expanded = ref(false);
+const busy = ref(false);
+const feedback = ref("");
 
 function toggle() {
   expanded.value = !expanded.value;
@@ -77,6 +107,71 @@ const badges = computed(() => {
     state: r.state,
   }));
 });
+
+const route = useRoute();
+const batch = useBatchStore();
+
+const hasConflict = computed(
+  () => props.node.kind === "file" && props.node.clones.some((c) => c.state === "differs"),
+);
+
+const canSync = computed(() => {
+  if (props.node.kind === "folder") return true;
+  if (hasConflict.value) return false;
+  return props.node.clones.some((c) => c.state === "missing") && props.node.clones.some((c) => c.state === "present");
+});
+
+const canDelete = computed(() => {
+  if (props.node.kind === "folder") return true;
+  return props.node.clones.some((c) => c.state !== "missing");
+});
+
+function showFeedback(text: string) {
+  feedback.value = text;
+  setTimeout(() => {
+    if (feedback.value === text) feedback.value = "";
+  }, 4000);
+}
+
+async function doSync() {
+  busy.value = true;
+  try {
+    const kind = props.node.kind === "folder" ? "sync_folder" : "sync_file";
+    const skipped = await batch.queue({
+      kind,
+      group_name: route.params.name as string,
+      group_number: route.params.number as string,
+      rel_path: props.node.rel_path,
+    });
+    if (props.node.kind === "folder") {
+      showFeedback(skipped > 0 ? `Eingereiht. ${skipped} Datei(en) benötigen die Konfliktlösung.` : "Eingereiht.");
+    }
+  } catch (e) {
+    showFeedback(e instanceof Error ? e.message : "Fehler beim Einreihen.");
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function doDelete() {
+  busy.value = true;
+  try {
+    const kind = props.node.kind === "folder" ? "delete_folder" : "delete_file";
+    await batch.queue({
+      kind,
+      group_name: route.params.name as string,
+      group_number: route.params.number as string,
+      rel_path: props.node.rel_path,
+    });
+    if (props.node.kind === "folder") {
+      showFeedback("Eingereiht.");
+    }
+  } catch (e) {
+    showFeedback(e instanceof Error ? e.message : "Fehler beim Einreihen.");
+  } finally {
+    busy.value = false;
+  }
+}
 </script>
 
 <style scoped>
@@ -145,6 +240,54 @@ const badges = computed(() => {
   display: flex;
   gap: 0.25rem;
   flex-shrink: 0;
+}
+
+.node-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+}
+
+.conflict-pill {
+  font-size: 0.7rem;
+  color: var(--state-differs);
+  white-space: nowrap;
+}
+
+.action-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  border-radius: 5px;
+  width: 1.6rem;
+  height: 1.6rem;
+  font-size: 0.8rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.action-btn.danger:hover:not(:disabled) {
+  border-color: var(--state-missing);
+  color: var(--state-missing);
+}
+
+.action-btn:disabled {
+  opacity: 0.4;
+}
+
+.feedback {
+  margin: 0 0 0.25rem 2.4rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 .children {

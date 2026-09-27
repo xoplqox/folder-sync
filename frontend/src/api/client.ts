@@ -1,6 +1,7 @@
 import type { DrivesResponse } from "../types/drive";
 import type { ComparisonMode, ConfigResponse, ConfigUpdate } from "../types/config";
 import type { MergedTree } from "../types/tree";
+import type { BatchRun, QueueRequest, QueueResponseBody } from "../types/batch";
 
 class ApiError extends Error {}
 
@@ -47,6 +48,30 @@ export function updateConfig(update: ConfigUpdate): Promise<ConfigResponse> {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(update),
+  });
+}
+
+export function getBatch(): Promise<BatchRun> {
+  return request<BatchRun>("/api/batch");
+}
+
+export function queueBatchAction(req: QueueRequest): Promise<QueueResponseBody> {
+  return request<QueueResponseBody>("/api/batch/actions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+}
+
+export function removeBatchAction(id: string): Promise<BatchRun> {
+  return request<BatchRun>(`/api/batch/actions/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+export function removeBatchGroup(groupId: string): Promise<BatchRun> {
+  return request<BatchRun>(`/api/batch/actions?group_id=${encodeURIComponent(groupId)}`, {
+    method: "DELETE",
   });
 }
 
