@@ -1,3 +1,4 @@
+mod embed;
 mod error;
 mod routes;
 mod state;
@@ -49,6 +50,7 @@ async fn main() -> anyhow::Result<()> {
     let state = AppState::new(cli.read_only, config_path, config);
 
     let app = routes::api_router()
+        .fallback(embed::static_handler)
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 
