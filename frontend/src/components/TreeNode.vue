@@ -47,9 +47,14 @@
       </span>
 
       <span class="node-actions" @click.stop>
-        <span v-if="hasConflict" class="conflict-pill" title="Konflikt: unterschiedliche Versionen vorhanden">
-          ⚠ Konflikt
-        </span>
+        <button
+          v-if="hasConflict"
+          class="conflict-pill"
+          title="Konflikt: unterschiedliche Versionen vorhanden — klicken zum Lösen"
+          @click="wizardOpen = true"
+        >
+          ⚠ Konflikt lösen
+        </button>
         <button
           v-if="canSync"
           class="action-btn"
@@ -73,6 +78,13 @@
 
     <p v-if="feedback" class="feedback">{{ feedback }}</p>
 
+    <ConflictWizardModal
+      v-if="wizardOpen"
+      :node="node"
+      @close="wizardOpen = false"
+      @resolved="onResolved"
+    />
+
     <ul v-if="node.kind === 'folder' && expanded" class="children">
       <TreeNode v-for="child in node.children" :key="child.rel_path" :node="child" />
     </ul>
@@ -84,6 +96,7 @@ import { computed, ref } from "vue";
 import { useRoute } from "vue-router";
 import type { MergedNode } from "../types/tree";
 import CloneBadge from "./CloneBadge.vue";
+import ConflictWizardModal from "./ConflictWizardModal.vue";
 import { useBatchStore } from "../stores/batch";
 
 const props = defineProps<{
@@ -93,6 +106,12 @@ const props = defineProps<{
 const expanded = ref(false);
 const busy = ref(false);
 const feedback = ref("");
+const wizardOpen = ref(false);
+
+function onResolved() {
+  wizardOpen.value = false;
+  showFeedback("Eingereiht.");
+}
 
 function toggle() {
   expanded.value = !expanded.value;
@@ -254,6 +273,14 @@ async function doDelete() {
   font-size: 0.7rem;
   color: var(--state-differs);
   white-space: nowrap;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 0.15rem 0.3rem;
+  border-radius: 4px;
+}
+
+.conflict-pill:hover {
+  border-color: var(--state-differs);
 }
 
 .action-btn {

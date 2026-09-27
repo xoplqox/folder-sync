@@ -36,7 +36,8 @@ export type QueueRequest =
   | { kind: "sync_file"; group_name: string; group_number: string; rel_path: string }
   | { kind: "delete_file"; group_name: string; group_number: string; rel_path: string }
   | { kind: "sync_folder"; group_name: string; group_number: string; rel_path: string }
-  | { kind: "delete_folder"; group_name: string; group_number: string; rel_path: string };
+  | { kind: "delete_folder"; group_name: string; group_number: string; rel_path: string }
+  | { kind: "resolve_conflict"; group_name: string; group_number: string; rel_path: string; chosen_clone: string };
 
 export interface QueueResponseBody {
   queued: number;

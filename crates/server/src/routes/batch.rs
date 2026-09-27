@@ -3,8 +3,8 @@ use axum::http::StatusCode;
 use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use folder_sync_core::batch::{
-    find_node, plan_delete_file, plan_delete_folder, plan_sync_file, plan_sync_folder, ActionKind, BatchAction, BatchRun,
-    ProgressEvent, ProgressSink, RunStatus,
+    find_node, plan_delete_file, plan_delete_folder, plan_resolve_conflict, plan_sync_file, plan_sync_folder, ActionKind,
+    BatchAction, BatchRun, ProgressEvent, ProgressSink, RunStatus,
 };
 use folder_sync_core::config::ComparisonMode;
 use folder_sync_core::drive::scan_drives;
@@ -89,6 +89,15 @@ enum QueueRequest {
         group_number: String,
         rel_path: String,
     },
+    /// The conflict wizard's explicit choice: sync `chosen_clone`'s version
+    /// to every other clone that differs from it, overriding the tree's
+    /// majority-vote reference.
+    ResolveConflict {
+        group_name: String,
+        group_number: String,
+        rel_path: String,
+        chosen_clone: String,
+    },
 }
 
 impl QueueRequest {
@@ -97,7 +106,8 @@ impl QueueRequest {
             QueueRequest::SyncFile { group_name, group_number, rel_path }
             | QueueRequest::DeleteFile { group_name, group_number, rel_path }
             | QueueRequest::SyncFolder { group_name, group_number, rel_path }
-            | QueueRequest::DeleteFolder { group_name, group_number, rel_path } => (group_name, group_number, rel_path),
+            | QueueRequest::DeleteFolder { group_name, group_number, rel_path }
+            | QueueRequest::ResolveConflict { group_name, group_number, rel_path, .. } => (group_name, group_number, rel_path),
         }
     }
 }
@@ -145,6 +155,7 @@ async fn queue_action(State(state): State<AppState>, Json(req): Json<QueueReques
                 Ok((plan.actions, plan.skipped_conflicts))
             }
             QueueRequest::DeleteFolder { .. } => Ok((plan_delete_folder(node), Vec::new())),
+            QueueRequest::ResolveConflict { chosen_clone, .. } => Ok((vec![plan_resolve_conflict(node, &chosen_clone)?], Vec::new())),
         }
     })
     .await
