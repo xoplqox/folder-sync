@@ -24,6 +24,10 @@ function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
+// Module-scoped (not store state) since it's a plain timer handle, not
+// something views should react to — same pattern as the WS reconnect timer.
+let pollTimer: ReturnType<typeof setInterval> | undefined;
+
 export const useBatchStore = defineStore("batch", {
   state: (): BatchState => ({
     actions: [],
@@ -42,17 +46,25 @@ export const useBatchStore = defineStore("batch", {
     isRunning: (state) => state.status === "running",
   },
   actions: {
+    /**
+     * Applies a fresh queue snapshot, from either the WebSocket stream or a
+     * plain REST fetch/poll. Detects actions that newly transitioned to
+     * "done" (compared to the previous state) and records one as
+     * `lastFinishedAction`, so views can react the same way regardless of
+     * which channel delivered the update — this is what keeps the UI live
+     * even if the WebSocket never connects (e.g. blocked by a proxy).
+     */
     applyRun(run: BatchRun) {
+      const previousStatus = new Map(this.actions.map((a) => [a.id, a.status]));
+      for (const action of run.actions) {
+        if (action.status === "done" && previousStatus.get(action.id) !== "done") {
+          this.lastFinishedAction = { group_name: action.group_name, group_number: action.group_number };
+        }
+      }
       this.actions = run.actions;
       this.status = run.status;
     },
     handleEvent(event: ProgressEvent) {
-      if (event.type === "action_finished" && event.status === "done") {
-        const action = this.actions.find((a) => a.id === event.action_id);
-        if (action) {
-          this.lastFinishedAction = { group_name: action.group_name, group_number: action.group_number };
-        }
-      }
       if (event.type === "run_completed") {
         this.lastCompleted = { succeeded: event.succeeded, failed: event.failed };
         const toast = useToastStore();
@@ -65,11 +77,40 @@ export const useBatchStore = defineStore("batch", {
         useToastStore().push("Batch abgebrochen. Verbleibende Aktionen bleiben geplant.", "info");
       }
     },
+    /**
+     * Fallback for when the WebSocket stream doesn't (or can't) deliver live
+     * updates — e.g. a devcontainer/proxy setup that doesn't forward
+     * WebSocket upgrades. Polls GET /api/batch while a run is active so the
+     * UI still catches up without requiring a manual page reload.
+     */
+    startPolling() {
+      if (pollTimer) return;
+      pollTimer = setInterval(() => {
+        this.pollOnce();
+      }, 1500);
+    },
+    stopPolling() {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = undefined;
+      }
+    },
+    async pollOnce() {
+      try {
+        this.applyRun(await getBatch());
+      } catch {
+        // Transient error — the next tick retries; don't spam toasts for this.
+      }
+      if (this.status !== "running") {
+        this.stopPolling();
+      }
+    },
     async fetch() {
       this.loading = true;
       this.error = null;
       try {
         this.applyRun(await getBatch());
+        if (this.status === "running") this.startPolling();
       } catch (e) {
         this.error = errorMessage(e);
       } finally {
@@ -113,6 +154,7 @@ export const useBatchStore = defineStore("batch", {
       this.error = null;
       try {
         await startBatch();
+        this.startPolling();
       } catch (e) {
         this.error = errorMessage(e);
         useToastStore().push(this.error, "error");
