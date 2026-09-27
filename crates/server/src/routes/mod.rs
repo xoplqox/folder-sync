@@ -1,6 +1,7 @@
 mod config;
 mod drives;
 mod health;
+mod tree;
 
 use axum::Router;
 
@@ -11,4 +12,5 @@ pub fn api_router() -> Router<AppState> {
         .merge(health::router())
         .merge(config::router())
         .merge(drives::router())
+        .merge(tree::router())
 }
