@@ -40,16 +40,22 @@
         <p v-if="config.readOnly" class="readonly-note">
           Read-Only-Modus: Ausführen ist deaktiviert.
         </p>
-        <div class="footer-actions">
+        <div v-if="batch.isRunning" class="running-indicator">
+          <span class="spinner" aria-hidden="true" />
+          <span>Batch läuft …</span>
+          <button class="btn" :disabled="batch.cancelling" @click="cancel">
+            {{ batch.cancelling ? "Wird abgebrochen …" : "Abbrechen" }}
+          </button>
+        </div>
+        <div v-else class="footer-actions">
           <button
-            v-if="!batch.isRunning"
             class="btn btn-primary"
-            :disabled="batch.queuedCount === 0 || config.readOnly"
+            :disabled="batch.queuedCount === 0 || config.readOnly || batch.starting"
             @click="start"
           >
-            Batch starten ({{ batch.queuedCount }})
+            <span v-if="batch.starting" class="spinner" aria-hidden="true" />
+            {{ batch.starting ? "Wird gestartet …" : `Batch starten (${batch.queuedCount})` }}
           </button>
-          <button v-else class="btn" @click="cancel">Abbrechen</button>
         </div>
       </footer>
     </aside>
@@ -231,5 +237,34 @@ function cancel() {
 
 .footer-actions .btn {
   width: 100%;
+}
+
+.running-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.running-indicator .btn {
+  margin-left: auto;
+}
+
+.spinner {
+  display: inline-block;
+  width: 0.9rem;
+  height: 0.9rem;
+  border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

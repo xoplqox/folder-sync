@@ -1,6 +1,9 @@
 <template>
   <li class="action-row" :class="`status-${action.status}`">
-    <span class="action-icon">{{ action.kind.kind === "sync_file" ? "⇄" : "✕" }}</span>
+    <span class="action-icon">
+      <span v-if="action.status === 'running'" class="spinner" aria-hidden="true" />
+      <template v-else>{{ action.kind.kind === "sync_file" ? "⇄" : "✕" }}</template>
+    </span>
     <div class="action-body">
       <div class="path">{{ action.kind.rel_path }}</div>
       <div class="detail">{{ description }}</div>
@@ -68,8 +71,26 @@ const statusLabel = computed(() => statusLabels[props.action.status]);
 .action-icon {
   flex-shrink: 0;
   width: 1.5rem;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--text-muted);
+}
+
+.spinner {
+  display: inline-block;
+  width: 0.85rem;
+  height: 0.85rem;
+  border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .action-body {
@@ -100,6 +121,10 @@ const statusLabel = computed(() => statusLabels[props.action.status]);
   flex-shrink: 0;
   font-size: 0.7rem;
   color: var(--text-muted);
+}
+
+.status-running .status-badge {
+  color: var(--accent);
 }
 
 .status-failed .status-badge {

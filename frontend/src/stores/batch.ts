@@ -18,6 +18,10 @@ interface BatchState {
   lastCompleted: { succeeded: number; failed: number } | null;
   /** Set (to a fresh object) whenever an action finishes successfully, so views can react to it. */
   lastFinishedAction: FinishedActionRef | null;
+  /** True from the moment "Batch starten" is clicked until the start request resolves — for immediate button feedback. */
+  starting: boolean;
+  /** True from the moment "Abbrechen" is clicked until the cancel request resolves. */
+  cancelling: boolean;
 }
 
 function errorMessage(e: unknown): string {
@@ -37,6 +41,8 @@ export const useBatchStore = defineStore("batch", {
     lastSkippedConflicts: [],
     lastCompleted: null,
     lastFinishedAction: null,
+    starting: false,
+    cancelling: false,
   }),
   getters: {
     count: (state) => state.actions.length,
@@ -152,23 +158,35 @@ export const useBatchStore = defineStore("batch", {
     },
     async start() {
       this.error = null;
+      this.starting = true;
+      // Flip immediately so the button/UI reacts to the click without
+      // waiting on the network round-trip or the next poll/WS tick — rolled
+      // back below if the request actually fails.
+      const previousStatus = this.status;
+      this.status = "running";
       try {
         await startBatch();
         this.startPolling();
       } catch (e) {
+        this.status = previousStatus;
         this.error = errorMessage(e);
         useToastStore().push(this.error, "error");
         throw e;
+      } finally {
+        this.starting = false;
       }
     },
     async cancel() {
       this.error = null;
+      this.cancelling = true;
       try {
         await cancelBatch();
       } catch (e) {
         this.error = errorMessage(e);
         useToastStore().push(this.error, "error");
         throw e;
+      } finally {
+        this.cancelling = false;
       }
     },
   },
