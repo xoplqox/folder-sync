@@ -1,5 +1,9 @@
 <template>
   <div class="app-shell">
+    <div v-if="config.loaded && config.readOnly" class="readonly-banner">
+      🔒 Read-Only-Modus aktiv — Untersuchen und Einreihen ist möglich, Sync/Löschen ausführen ist deaktiviert.
+    </div>
+
     <router-view />
 
     <button class="batch-toggle" @click="drawerOpen = !drawerOpen">
@@ -32,6 +36,19 @@ onMounted(() => {
 <style>
 .app-shell {
   min-height: 100vh;
+}
+
+.readonly-banner {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding: 0.6rem 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--state-differs) 20%, var(--surface));
+  color: var(--state-differs);
+  border-bottom: 1px solid var(--state-differs);
 }
 
 .batch-toggle {
