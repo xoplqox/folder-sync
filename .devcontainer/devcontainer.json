@@ -1,0 +1,27 @@
+{
+  "name": "folder-sync",
+  "image": "mcr.microsoft.com/devcontainers/rust:1-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "tamasfe.even-better-toml",
+        "Vue.volar"
+      ]
+    }
+  },
+  "forwardPorts": [13322, 5173],
+  "portsAttributes": {
+    "13322": { "label": "folder-sync (backend/single-binary)" },
+    "5173": { "label": "Vite dev server" }
+  },
+  "containerEnv": {
+    "FOLDER_SYNC_SCAN_ROOT": "${containerWorkspaceFolder}/fixtures"
+  },
+  "postCreateCommand": "cargo install just --locked && cargo fetch && cd frontend && npm ci"
+}
