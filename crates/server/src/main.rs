@@ -24,19 +24,23 @@ struct Cli {
     port: u16,
 
     /// Root directory to scan for drive clones (default: /media/$USER).
-    /// Overrides and persists into the saved config file.
-    #[arg(long)]
+    /// Overrides and persists into the saved config file. Also settable via
+    /// FOLDER_SYNC_SCAN_ROOT, e.g. for pointing a devcontainer at fixtures.
+    #[arg(long, env = "FOLDER_SYNC_SCAN_ROOT")]
     scan_root: Option<PathBuf>,
 
     /// Override the config file location (mainly for tests/devcontainer use).
-    #[arg(long)]
+    #[arg(long, env = "FOLDER_SYNC_CONFIG_PATH")]
     config_path: Option<PathBuf>,
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env().add_directive("folder_sync_server=info".parse()?))
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::from_default_env()
+                .add_directive("folder_sync_server=info".parse()?),
+        )
         .init();
 
     let cli = Cli::parse();
@@ -56,7 +60,10 @@ async fn main() -> anyhow::Result<()> {
 
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), cli.port);
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    tracing::info!("folder-sync listening on http://{addr} (read_only={})", cli.read_only);
+    tracing::info!(
+        "folder-sync listening on http://{addr} (read_only={})",
+        cli.read_only
+    );
 
     axum::serve(listener, app).await?;
 

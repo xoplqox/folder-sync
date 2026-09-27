@@ -64,14 +64,17 @@ impl PartialOrd for DriveGroupKey {
 
 impl Ord for DriveGroupKey {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.name.to_lowercase().cmp(&other.name.to_lowercase()).then_with(|| {
-            // Numeric comparison when both parse cleanly, so "2" sorts before "10";
-            // falls back to string comparison for non-numeric/odd inputs.
-            match (self.number.parse::<u64>(), other.number.parse::<u64>()) {
-                (Ok(a), Ok(b)) => a.cmp(&b).then_with(|| self.number.cmp(&other.number)),
-                _ => self.number.cmp(&other.number),
-            }
-        })
+        self.name
+            .to_lowercase()
+            .cmp(&other.name.to_lowercase())
+            .then_with(|| {
+                // Numeric comparison when both parse cleanly, so "2" sorts before "10";
+                // falls back to string comparison for non-numeric/odd inputs.
+                match (self.number.parse::<u64>(), other.number.parse::<u64>()) {
+                    (Ok(a), Ok(b)) => a.cmp(&b).then_with(|| self.number.cmp(&other.number)),
+                    _ => self.number.cmp(&other.number),
+                }
+            })
     }
 }
 
@@ -137,7 +140,9 @@ pub fn scan_drives(root: &Path) -> Result<Vec<DriveGroup>, CoreError> {
     }
 
     for group in &mut groups {
-        group.clones.sort_by(|a, b| clone_order_key(&a.label.clone).cmp(&clone_order_key(&b.label.clone)));
+        group
+            .clones
+            .sort_by(|a, b| clone_order_key(&a.label.clone).cmp(&clone_order_key(&b.label.clone)));
     }
     groups.sort_by(|a, b| a.key.cmp(&b.key));
 
@@ -175,7 +180,15 @@ mod tests {
     #[test]
     fn groups_by_name_and_number_and_sorts_clones() {
         let dir = tempdir().unwrap();
-        for name in ["Videos_2c", "Videos_2a", "Daten_1b", "Daten_1a", "Daten_10a", "not_matching", "Daten_2a"] {
+        for name in [
+            "Videos_2c",
+            "Videos_2a",
+            "Daten_1b",
+            "Daten_1a",
+            "Daten_10a",
+            "not_matching",
+            "Daten_2a",
+        ] {
             std::fs::create_dir(dir.path().join(name)).unwrap();
         }
         // a stray file should be ignored, not treated as a drive
@@ -188,7 +201,11 @@ mod tests {
         assert_eq!(keys, vec!["Daten_1", "Daten_2", "Daten_10", "Videos_2"]);
 
         let daten1 = &groups[0];
-        let clone_letters: Vec<&str> = daten1.clones.iter().map(|d| d.label.clone.as_str()).collect();
+        let clone_letters: Vec<&str> = daten1
+            .clones
+            .iter()
+            .map(|d| d.label.clone.as_str())
+            .collect();
         assert_eq!(clone_letters, vec!["a", "b"]);
     }
 
@@ -199,7 +216,11 @@ mod tests {
             std::fs::create_dir(dir.path().join(name)).unwrap();
         }
         let groups = scan_drives(dir.path()).unwrap();
-        let clone_letters: Vec<&str> = groups[0].clones.iter().map(|d| d.label.clone.as_str()).collect();
+        let clone_letters: Vec<&str> = groups[0]
+            .clones
+            .iter()
+            .map(|d| d.label.clone.as_str())
+            .collect();
         assert_eq!(clone_letters, vec!["a", "z", "aa", "ab"]);
     }
 

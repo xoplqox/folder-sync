@@ -5,19 +5,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::CoreError;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ComparisonMode {
     /// Compare by filename + file size only (default).
+    #[default]
     NameSize,
     /// Additionally compare file content via a fast (XXH3) hash.
     NameSizeHash,
-}
-
-impl Default for ComparisonMode {
-    fn default() -> Self {
-        ComparisonMode::NameSize
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,8 +44,9 @@ impl Default for Config {
 /// Returns the default, XDG-compliant path to the config file
 /// (`~/.config/folder-sync/config.toml` on Linux).
 pub fn config_file_path() -> Result<PathBuf, CoreError> {
-    let proj_dirs = ProjectDirs::from("", "", "folder-sync")
-        .ok_or_else(|| CoreError::Config("could not determine a config directory for this user".into()))?;
+    let proj_dirs = ProjectDirs::from("", "", "folder-sync").ok_or_else(|| {
+        CoreError::Config("could not determine a config directory for this user".into())
+    })?;
     Ok(proj_dirs.config_dir().join("config.toml"))
 }
 
@@ -63,7 +59,8 @@ pub fn load_config(path: &Path) -> Result<Config, CoreError> {
         path: path.to_path_buf(),
         source,
     })?;
-    toml::from_str(&content).map_err(|e| CoreError::Config(format!("invalid config file {}: {e}", path.display())))
+    toml::from_str(&content)
+        .map_err(|e| CoreError::Config(format!("invalid config file {}: {e}", path.display())))
 }
 
 /// Persists `config` to `path` as TOML, creating parent directories as needed.
@@ -84,7 +81,10 @@ pub fn save_config(path: &Path, config: &Config) -> Result<(), CoreError> {
 /// Loads the persisted config at `config_path`, applies an optional CLI
 /// `--scan-root` override on top, and persists the result back to disk so
 /// the override is remembered on the next launch (even without the flag).
-pub fn resolve_config(config_path: &Path, cli_scan_root: Option<PathBuf>) -> Result<Config, CoreError> {
+pub fn resolve_config(
+    config_path: &Path,
+    cli_scan_root: Option<PathBuf>,
+) -> Result<Config, CoreError> {
     let mut config = load_config(config_path)?;
     let mut dirty = !config_path.exists();
 

@@ -49,7 +49,12 @@ pub struct BatchAction {
 }
 
 impl BatchAction {
-    pub fn new(group_name: String, group_number: String, kind: ActionKind, group_id: Option<Uuid>) -> Self {
+    pub fn new(
+        group_name: String,
+        group_number: String,
+        kind: ActionKind,
+        group_id: Option<Uuid>,
+    ) -> Self {
         BatchAction {
             id: Uuid::new_v4(),
             group_name,

@@ -62,7 +62,9 @@ impl BatchExecutor {
             };
 
             self.queue.mark_running(action.id);
-            sink.emit(ProgressEvent::ActionStarted { action_id: action.id });
+            sink.emit(ProgressEvent::ActionStarted {
+                action_id: action.id,
+            });
 
             let result = execute_one(scan_root, &action, |done, total| {
                 self.queue.set_progress(action.id, done, total);
@@ -99,21 +101,34 @@ impl BatchExecutor {
 /// Executes a single action against `scan_root`, running every target
 /// clone even if an earlier one fails, and aggregating any failures into
 /// one message rather than stopping at the first error.
-fn execute_one(scan_root: &Path, action: &BatchAction, mut progress: impl FnMut(u64, u64)) -> Result<(), String> {
+fn execute_one(
+    scan_root: &Path,
+    action: &BatchAction,
+    mut progress: impl FnMut(u64, u64),
+) -> Result<(), String> {
     match &action.kind {
         ActionKind::SyncFile {
             rel_path,
             source_clone,
             target_clones,
         } => {
-            let source_path = clone_path(scan_root, &action.group_name, &action.group_number, source_clone).join(rel_path);
-            let metadata = std::fs::metadata(&source_path).map_err(|e| format!("reading source ({source_clone}): {e}"))?;
+            let source_path = clone_path(
+                scan_root,
+                &action.group_name,
+                &action.group_number,
+                source_clone,
+            )
+            .join(rel_path);
+            let metadata = std::fs::metadata(&source_path)
+                .map_err(|e| format!("reading source ({source_clone}): {e}"))?;
             let total = metadata.len();
             let mtime = metadata.modified().ok();
 
             let mut errors = Vec::new();
             for target in target_clones {
-                let dest_path = clone_path(scan_root, &action.group_name, &action.group_number, target).join(rel_path);
+                let dest_path =
+                    clone_path(scan_root, &action.group_name, &action.group_number, target)
+                        .join(rel_path);
                 if let Err(e) = copy_with_progress(&source_path, &dest_path, total, &mut progress) {
                     errors.push(format!("{target}: {e}"));
                     continue;
@@ -131,7 +146,8 @@ fn execute_one(scan_root: &Path, action: &BatchAction, mut progress: impl FnMut(
         ActionKind::DeleteFile { rel_path, clones } => {
             let mut errors = Vec::new();
             for clone in clones {
-                let path = clone_path(scan_root, &action.group_name, &action.group_number, clone).join(rel_path);
+                let path = clone_path(scan_root, &action.group_name, &action.group_number, clone)
+                    .join(rel_path);
                 match std::fs::remove_file(&path) {
                     Ok(()) => {}
                     Err(e) if e.kind() == std::io::ErrorKind::NotFound => {} // already gone: not an error
@@ -147,7 +163,12 @@ fn execute_one(scan_root: &Path, action: &BatchAction, mut progress: impl FnMut(
     }
 }
 
-fn copy_with_progress(src: &Path, dest: &Path, total: u64, progress: &mut impl FnMut(u64, u64)) -> std::io::Result<()> {
+fn copy_with_progress(
+    src: &Path,
+    dest: &Path,
+    total: u64,
+    progress: &mut impl FnMut(u64, u64),
+) -> std::io::Result<()> {
     if let Some(parent) = dest.parent() {
         std::fs::create_dir_all(parent)?;
     }
@@ -210,8 +231,14 @@ mod tests {
         assert_eq!(a.status, ActionStatus::Done);
         assert_eq!(a.error, None);
 
-        assert_eq!(std::fs::read(dir.path().join("Daten_1b/f.txt")).unwrap(), b"hello world");
-        assert_eq!(std::fs::read(dir.path().join("Daten_1c/f.txt")).unwrap(), b"hello world");
+        assert_eq!(
+            std::fs::read(dir.path().join("Daten_1b/f.txt")).unwrap(),
+            b"hello world"
+        );
+        assert_eq!(
+            std::fs::read(dir.path().join("Daten_1c/f.txt")).unwrap(),
+            b"hello world"
+        );
     }
 
     #[test]
@@ -236,7 +263,16 @@ mod tests {
         let executor = BatchExecutor::new(queue.clone());
         executor.run(dir.path(), &NullSink);
 
-        assert_eq!(queue.snapshot().actions.iter().find(|a| a.id == id).unwrap().status, ActionStatus::Done);
+        assert_eq!(
+            queue
+                .snapshot()
+                .actions
+                .iter()
+                .find(|a| a.id == id)
+                .unwrap()
+                .status,
+            ActionStatus::Done
+        );
         assert!(!dir.path().join("Daten_1a/f.txt").exists());
         assert!(!dir.path().join("Daten_1b/f.txt").exists());
     }
@@ -284,7 +320,10 @@ mod tests {
 
         let ok = run.actions.iter().find(|a| a.id == ok_id).unwrap();
         assert_eq!(ok.status, ActionStatus::Done);
-        assert_eq!(std::fs::read(dir.path().join("Daten_1b/second.txt")).unwrap(), b"ok");
+        assert_eq!(
+            std::fs::read(dir.path().join("Daten_1b/second.txt")).unwrap(),
+            b"ok"
+        );
     }
 
     /// A sink that cancels the executor as soon as the first action finishes,
@@ -348,12 +387,35 @@ mod tests {
 
         let run = queue.snapshot();
         assert_eq!(run.status, RunStatus::Cancelled);
-        assert_eq!(run.actions.iter().find(|a| a.id == first_id).unwrap().status, ActionStatus::Done);
+        assert_eq!(
+            run.actions
+                .iter()
+                .find(|a| a.id == first_id)
+                .unwrap()
+                .status,
+            ActionStatus::Done
+        );
         // Cancel took effect before the second action started: still Queued,
         // ready to be picked up by a later run() call ("resume").
-        assert_eq!(run.actions.iter().find(|a| a.id == second_id).unwrap().status, ActionStatus::Queued);
+        assert_eq!(
+            run.actions
+                .iter()
+                .find(|a| a.id == second_id)
+                .unwrap()
+                .status,
+            ActionStatus::Queued
+        );
 
         executor.run(dir.path(), &NullSink);
-        assert_eq!(queue.snapshot().actions.iter().find(|a| a.id == second_id).unwrap().status, ActionStatus::Done);
+        assert_eq!(
+            queue
+                .snapshot()
+                .actions
+                .iter()
+                .find(|a| a.id == second_id)
+                .unwrap()
+                .status,
+            ActionStatus::Done
+        );
     }
 }

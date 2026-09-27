@@ -131,7 +131,10 @@ pub fn plan_delete_folder(node: &MergedNode) -> Vec<ActionKind> {
 /// version to every other clone whose value differs from it (comparing
 /// directly against the chosen clone, not the tree's majority-vote
 /// reference — the whole point of the wizard is overriding that).
-pub fn plan_resolve_conflict(node: &MergedNode, chosen_clone: &str) -> Result<ActionKind, PlanError> {
+pub fn plan_resolve_conflict(
+    node: &MergedNode,
+    chosen_clone: &str,
+) -> Result<ActionKind, PlanError> {
     if node.kind != EntryKind::File {
         return Err(PlanError::NotAFile);
     }
@@ -187,7 +190,11 @@ mod tests {
 
         let action = plan_sync_file(node).unwrap();
         match action {
-            ActionKind::SyncFile { source_clone, target_clones, .. } => {
+            ActionKind::SyncFile {
+                source_clone,
+                target_clones,
+                ..
+            } => {
                 assert!(source_clone == "a" || source_clone == "b");
                 assert_eq!(target_clones, vec!["c".to_string()]);
             }
@@ -250,7 +257,10 @@ mod tests {
         let docs = find_node(&tree.root, "docs").unwrap();
 
         let plan = plan_sync_folder(docs);
-        assert_eq!(plan.skipped_conflicts, vec!["docs/conflict.txt".to_string()]);
+        assert_eq!(
+            plan.skipped_conflicts,
+            vec!["docs/conflict.txt".to_string()]
+        );
         assert_eq!(plan.actions.len(), 1);
         match &plan.actions[0] {
             ActionKind::SyncFile { rel_path, .. } => assert_eq!(rel_path, "docs/ok.txt"),
@@ -273,7 +283,11 @@ mod tests {
         // Chosen clone "a" as source: "c" differs in size, "b" matches by size (basic mode blind spot, expected).
         let action = plan_resolve_conflict(node, "a").unwrap();
         match action {
-            ActionKind::SyncFile { source_clone, target_clones, .. } => {
+            ActionKind::SyncFile {
+                source_clone,
+                target_clones,
+                ..
+            } => {
                 assert_eq!(source_clone, "a");
                 assert_eq!(target_clones, vec!["c".to_string()]);
             }

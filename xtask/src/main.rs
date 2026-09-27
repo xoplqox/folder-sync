@@ -91,9 +91,18 @@ fn gen_daten_1(out: &Path) -> anyhow::Result<()> {
     // name+size comparison sees this as "in sync"; advanced hash mode
     // must flag it as differing.
     let conflict_size = 256;
-    write_file(&a.join("conflict_content.bin"), &gen_bytes(1, conflict_size))?;
-    write_file(&b.join("conflict_content.bin"), &gen_bytes(2, conflict_size))?;
-    write_file(&c.join("conflict_content.bin"), &gen_bytes(3, conflict_size))?;
+    write_file(
+        &a.join("conflict_content.bin"),
+        &gen_bytes(1, conflict_size),
+    )?;
+    write_file(
+        &b.join("conflict_content.bin"),
+        &gen_bytes(2, conflict_size),
+    )?;
+    write_file(
+        &c.join("conflict_content.bin"),
+        &gen_bytes(3, conflict_size),
+    )?;
 
     // Same name, different size in every clone: caught even in basic mode.
     write_file(&a.join("size_diff.bin"), &gen_bytes(10, 100))?;

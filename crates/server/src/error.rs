@@ -39,9 +39,10 @@ impl From<folder_sync_core::batch::PlanError> for ApiError {
         let status = match err {
             PlanError::NotFound => StatusCode::NOT_FOUND,
             PlanError::HasConflict => StatusCode::CONFLICT,
-            PlanError::NotAFile | PlanError::NothingToSync | PlanError::AlreadyInSync | PlanError::NothingToDelete => {
-                StatusCode::BAD_REQUEST
-            }
+            PlanError::NotAFile
+            | PlanError::NothingToSync
+            | PlanError::AlreadyInSync
+            | PlanError::NothingToDelete => StatusCode::BAD_REQUEST,
         };
         ApiError {
             status,
@@ -71,6 +72,12 @@ struct ErrorBody {
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        (self.status, Json(ErrorBody { error: self.message })).into_response()
+        (
+            self.status,
+            Json(ErrorBody {
+                error: self.message,
+            }),
+        )
+            .into_response()
     }
 }

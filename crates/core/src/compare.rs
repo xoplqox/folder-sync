@@ -26,7 +26,10 @@ fn reference_key(mode: ComparisonMode, meta: &FileMeta) -> (u64, Option<u64>) {
 
 /// `present` lists clones (in group/display order) that have this file, with their metadata.
 /// Returns the reference key that the majority of present clones agree on.
-pub fn compute_reference(mode: ComparisonMode, present: &[(&str, &FileMeta)]) -> Option<(u64, Option<u64>)> {
+pub fn compute_reference(
+    mode: ComparisonMode,
+    present: &[(&str, &FileMeta)],
+) -> Option<(u64, Option<u64>)> {
     if present.is_empty() {
         return None;
     }
@@ -44,7 +47,11 @@ pub fn compute_reference(mode: ComparisonMode, present: &[(&str, &FileMeta)]) ->
 }
 
 /// Determines a single clone's `MatchState` for a file given the group's reference value.
-pub fn match_state(mode: ComparisonMode, meta: Option<&FileMeta>, reference: Option<(u64, Option<u64>)>) -> MatchState {
+pub fn match_state(
+    mode: ComparisonMode,
+    meta: Option<&FileMeta>,
+    reference: Option<(u64, Option<u64>)>,
+) -> MatchState {
     let Some(meta) = meta else {
         return MatchState::Missing;
     };
@@ -78,8 +85,14 @@ mod tests {
         let present = vec![("a", &a), ("b", &b), ("c", &c)];
         let reference = compute_reference(ComparisonMode::NameSize, &present);
         assert_eq!(reference, Some((100, None)));
-        assert_eq!(match_state(ComparisonMode::NameSize, Some(&a), reference), MatchState::Present);
-        assert_eq!(match_state(ComparisonMode::NameSize, Some(&c), reference), MatchState::Differs);
+        assert_eq!(
+            match_state(ComparisonMode::NameSize, Some(&a), reference),
+            MatchState::Present
+        );
+        assert_eq!(
+            match_state(ComparisonMode::NameSize, Some(&c), reference),
+            MatchState::Differs
+        );
     }
 
     #[test]
@@ -99,12 +112,21 @@ mod tests {
         let c = meta(100, Some(999));
         let present = vec![("a", &a), ("b", &b), ("c", &c)];
         let reference = compute_reference(ComparisonMode::NameSizeHash, &present);
-        assert_eq!(match_state(ComparisonMode::NameSizeHash, Some(&c), reference), MatchState::Differs);
-        assert_eq!(match_state(ComparisonMode::NameSizeHash, Some(&a), reference), MatchState::Present);
+        assert_eq!(
+            match_state(ComparisonMode::NameSizeHash, Some(&c), reference),
+            MatchState::Differs
+        );
+        assert_eq!(
+            match_state(ComparisonMode::NameSizeHash, Some(&a), reference),
+            MatchState::Present
+        );
     }
 
     #[test]
     fn missing_clone_is_missing_regardless_of_reference() {
-        assert_eq!(match_state(ComparisonMode::NameSize, None, Some((100, None))), MatchState::Missing);
+        assert_eq!(
+            match_state(ComparisonMode::NameSize, None, Some((100, None))),
+            MatchState::Missing
+        );
     }
 }

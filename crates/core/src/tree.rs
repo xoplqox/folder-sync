@@ -130,13 +130,12 @@ impl BuildFolderNode {
 
     fn file_child(&mut self, component: &str) -> &mut BuildFileNode {
         let key = component.to_lowercase();
-        let entry = self
-            .children
-            .entry(key)
-            .or_insert_with(|| BuildChild::File(BuildFileNode {
+        let entry = self.children.entry(key).or_insert_with(|| {
+            BuildChild::File(BuildFileNode {
                 display_name: component.to_string(),
                 per_clone: BTreeMap::new(),
-            }));
+            })
+        });
         match entry {
             BuildChild::File(f) => f,
             BuildChild::Folder(_) => {
@@ -159,18 +158,29 @@ fn to_unix(t: Option<SystemTime>) -> Option<i64> {
 }
 
 /// Builds a merged directory tree across all clones in `group`, comparing files per `mode`.
-pub fn build_merged_tree(group: &DriveGroup, mode: ComparisonMode, hasher: Option<&HashFn>) -> Result<MergedTree, CoreError> {
+pub fn build_merged_tree(
+    group: &DriveGroup,
+    mode: ComparisonMode,
+    hasher: Option<&HashFn>,
+) -> Result<MergedTree, CoreError> {
     let clone_letters: Vec<String> = group.clones.iter().map(|d| d.label.clone.clone()).collect();
     let mut root = BuildFolderNode::new(String::new());
 
     for drive in &group.clones {
         let clone = &drive.label.clone;
-        for entry in WalkDir::new(&drive.mount_path).min_depth(1).into_iter().filter_map(|e| e.ok()) {
+        for entry in WalkDir::new(&drive.mount_path)
+            .min_depth(1)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
             let rel = match entry.path().strip_prefix(&drive.mount_path) {
                 Ok(r) => r,
                 Err(_) => continue,
             };
-            let components: Vec<String> = rel.components().map(|c| c.as_os_str().to_string_lossy().to_string()).collect();
+            let components: Vec<String> = rel
+                .components()
+                .map(|c| c.as_os_str().to_string_lossy().to_string())
+                .collect();
             let Some((last, parents)) = components.split_last() else {
                 continue;
             };
@@ -219,7 +229,12 @@ pub fn build_merged_tree(group: &DriveGroup, mode: ComparisonMode, hasher: Optio
     })
 }
 
-fn convert_folder(rel_path: &str, folder: &BuildFolderNode, clone_letters: &[String], mode: ComparisonMode) -> MergedNode {
+fn convert_folder(
+    rel_path: &str,
+    folder: &BuildFolderNode,
+    clone_letters: &[String],
+    mode: ComparisonMode,
+) -> MergedNode {
     let mut children: Vec<MergedNode> = folder
         .children
         .values()
@@ -261,7 +276,13 @@ fn rollup_for_clone(clone: &str, children: &[MergedNode]) -> RollupState {
     let mut has_missing = false;
     let mut has_differs = false;
 
-    fn visit(clone: &str, node: &MergedNode, saw_any_file: &mut bool, has_missing: &mut bool, has_differs: &mut bool) {
+    fn visit(
+        clone: &str,
+        node: &MergedNode,
+        saw_any_file: &mut bool,
+        has_missing: &mut bool,
+        has_differs: &mut bool,
+    ) {
         match node.kind {
             EntryKind::File => {
                 *saw_any_file = true;
@@ -282,7 +303,13 @@ fn rollup_for_clone(clone: &str, children: &[MergedNode]) -> RollupState {
     }
 
     for child in children {
-        visit(clone, child, &mut saw_any_file, &mut has_missing, &mut has_differs);
+        visit(
+            clone,
+            child,
+            &mut saw_any_file,
+            &mut has_missing,
+            &mut has_differs,
+        );
     }
 
     if !saw_any_file {
@@ -296,7 +323,12 @@ fn rollup_for_clone(clone: &str, children: &[MergedNode]) -> RollupState {
     }
 }
 
-fn convert_file(parent_rel: &str, file: &BuildFileNode, clone_letters: &[String], mode: ComparisonMode) -> MergedNode {
+fn convert_file(
+    parent_rel: &str,
+    file: &BuildFileNode,
+    clone_letters: &[String],
+    mode: ComparisonMode,
+) -> MergedNode {
     let present: Vec<(&str, &FileMeta)> = clone_letters
         .iter()
         .filter_map(|c| file.per_clone.get(c).map(|m| (c.as_str(), m)))
@@ -338,7 +370,7 @@ fn join_rel(parent: &str, name: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::drive::{scan_drives};
+    use crate::drive::scan_drives;
     use tempfile::tempdir;
 
     fn write(path: &Path, content: &[u8]) {
@@ -364,7 +396,10 @@ mod tests {
         let find = |name: &str| tree.root.children.iter().find(|n| n.name == name).unwrap();
 
         let identical = find("identical.txt");
-        assert!(identical.clones.iter().all(|c| c.state == MatchState::Present));
+        assert!(identical
+            .clones
+            .iter()
+            .all(|c| c.state == MatchState::Present));
 
         let only_a = find("only_a.txt");
         let b_status = only_a.clones.iter().find(|c| c.clone == "b").unwrap();
@@ -372,7 +407,10 @@ mod tests {
 
         let same_size = find("same_size.txt");
         // Basic mode can't see content differences when size matches.
-        assert!(same_size.clones.iter().all(|c| c.state == MatchState::Present));
+        assert!(same_size
+            .clones
+            .iter()
+            .all(|c| c.state == MatchState::Present));
     }
 
     #[test]
@@ -385,7 +423,12 @@ mod tests {
         let group = groups.into_iter().find(|g| g.key.name == "Daten").unwrap();
         let tree = build_merged_tree(&group, ComparisonMode::NameSize, None).unwrap();
 
-        let f = tree.root.children.iter().find(|n| n.name == "f.txt").unwrap();
+        let f = tree
+            .root
+            .children
+            .iter()
+            .find(|n| n.name == "f.txt")
+            .unwrap();
         let b_status = f.clones.iter().find(|c| c.clone == "b").unwrap();
         assert_eq!(b_status.state, MatchState::Differs);
     }
@@ -402,7 +445,12 @@ mod tests {
         let group = groups.into_iter().find(|g| g.key.name == "Daten").unwrap();
         let tree = build_merged_tree(&group, ComparisonMode::NameSize, None).unwrap();
 
-        let docs = tree.root.children.iter().find(|n| n.name == "docs").unwrap();
+        let docs = tree
+            .root
+            .children
+            .iter()
+            .find(|n| n.name == "docs")
+            .unwrap();
         let rollup = docs.rollup.as_ref().unwrap();
         let a_rollup = rollup.iter().find(|r| r.clone == "a").unwrap();
         let b_rollup = rollup.iter().find(|r| r.clone == "b").unwrap();
@@ -436,13 +484,27 @@ mod tests {
         let group = groups.into_iter().find(|g| g.key.name == "Daten").unwrap();
 
         let basic = build_merged_tree(&group, ComparisonMode::NameSize, None).unwrap();
-        let f_basic = basic.root.children.iter().find(|n| n.name == "f.bin").unwrap();
-        assert!(f_basic.clones.iter().all(|c| c.state == MatchState::Present));
+        let f_basic = basic
+            .root
+            .children
+            .iter()
+            .find(|n| n.name == "f.bin")
+            .unwrap();
+        assert!(f_basic
+            .clones
+            .iter()
+            .all(|c| c.state == MatchState::Present));
 
-        let hasher = |path: &Path, _size: u64, _mtime: SystemTime| crate::hash::hash_file(path).ok();
+        let hasher =
+            |path: &Path, _size: u64, _mtime: SystemTime| crate::hash::hash_file(path).ok();
         let hasher_ref: Option<&HashFn> = Some(&hasher);
         let advanced = build_merged_tree(&group, ComparisonMode::NameSizeHash, hasher_ref).unwrap();
-        let f_advanced = advanced.root.children.iter().find(|n| n.name == "f.bin").unwrap();
+        let f_advanced = advanced
+            .root
+            .children
+            .iter()
+            .find(|n| n.name == "f.bin")
+            .unwrap();
         let b_status = f_advanced.clones.iter().find(|c| c.clone == "b").unwrap();
         assert_eq!(b_status.state, MatchState::Differs);
         assert!(b_status.hash.is_some());
@@ -458,7 +520,12 @@ mod tests {
         let group = groups.into_iter().find(|g| g.key.name == "Daten").unwrap();
         let tree = build_merged_tree(&group, ComparisonMode::NameSize, None).unwrap();
 
-        let empty_dir = tree.root.children.iter().find(|n| n.name == "empty_dir").unwrap();
+        let empty_dir = tree
+            .root
+            .children
+            .iter()
+            .find(|n| n.name == "empty_dir")
+            .unwrap();
         let rollup = empty_dir.rollup.as_ref().unwrap();
         assert!(rollup.iter().all(|r| r.state == RollupState::Empty));
     }

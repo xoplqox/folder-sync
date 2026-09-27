@@ -5,7 +5,10 @@ pub mod progress;
 
 pub use action::{ActionKind, ActionStatus, BatchAction};
 pub use executor::BatchExecutor;
-pub use plan::{find_node, plan_delete_file, plan_delete_folder, plan_resolve_conflict, plan_sync_file, plan_sync_folder, FolderPlan, PlanError};
+pub use plan::{
+    find_node, plan_delete_file, plan_delete_folder, plan_resolve_conflict, plan_sync_file,
+    plan_sync_folder, FolderPlan, PlanError,
+};
 pub use progress::{NullSink, ProgressEvent, ProgressSink};
 
 use std::sync::RwLock;
@@ -72,16 +75,28 @@ impl BatchQueue {
     }
 
     pub fn add(&self, action: BatchAction) {
-        self.run.write().expect("batch queue lock poisoned").actions.push(action);
+        self.run
+            .write()
+            .expect("batch queue lock poisoned")
+            .actions
+            .push(action);
     }
 
     pub fn add_many(&self, actions: Vec<BatchAction>) {
-        self.run.write().expect("batch queue lock poisoned").actions.extend(actions);
+        self.run
+            .write()
+            .expect("batch queue lock poisoned")
+            .actions
+            .extend(actions);
     }
 
     pub fn remove(&self, id: Uuid) -> Result<(), RemoveError> {
         let mut run = self.run.write().expect("batch queue lock poisoned");
-        let pos = run.actions.iter().position(|a| a.id == id).ok_or(RemoveError::NotFound)?;
+        let pos = run
+            .actions
+            .iter()
+            .position(|a| a.id == id)
+            .ok_or(RemoveError::NotFound)?;
         if run.actions[pos].status == ActionStatus::Running {
             return Err(RemoveError::Running);
         }
@@ -91,7 +106,8 @@ impl BatchQueue {
 
     pub fn remove_group(&self, group_id: Uuid) {
         let mut run = self.run.write().expect("batch queue lock poisoned");
-        run.actions.retain(|a| a.group_id != Some(group_id) || a.status == ActionStatus::Running);
+        run.actions
+            .retain(|a| a.group_id != Some(group_id) || a.status == ActionStatus::Running);
     }
 
     /// Returns (and does not remove) the first `Queued` action, if any, in
@@ -107,20 +123,41 @@ impl BatchQueue {
     }
 
     pub fn mark_running(&self, id: Uuid) {
-        if let Some(a) = self.run.write().expect("batch queue lock poisoned").actions.iter_mut().find(|a| a.id == id) {
+        if let Some(a) = self
+            .run
+            .write()
+            .expect("batch queue lock poisoned")
+            .actions
+            .iter_mut()
+            .find(|a| a.id == id)
+        {
             a.status = ActionStatus::Running;
         }
     }
 
     pub fn set_progress(&self, id: Uuid, bytes_done: u64, bytes_total: u64) {
-        if let Some(a) = self.run.write().expect("batch queue lock poisoned").actions.iter_mut().find(|a| a.id == id) {
+        if let Some(a) = self
+            .run
+            .write()
+            .expect("batch queue lock poisoned")
+            .actions
+            .iter_mut()
+            .find(|a| a.id == id)
+        {
             a.bytes_done = bytes_done;
             a.bytes_total = Some(bytes_total);
         }
     }
 
     pub fn mark_finished(&self, id: Uuid, status: ActionStatus, error: Option<String>) {
-        if let Some(a) = self.run.write().expect("batch queue lock poisoned").actions.iter_mut().find(|a| a.id == id) {
+        if let Some(a) = self
+            .run
+            .write()
+            .expect("batch queue lock poisoned")
+            .actions
+            .iter_mut()
+            .find(|a| a.id == id)
+        {
             a.status = status;
             a.error = error;
         }
@@ -168,7 +205,10 @@ mod tests {
     #[test]
     fn remove_missing_action_errors() {
         let queue = BatchQueue::new();
-        assert!(matches!(queue.remove(Uuid::new_v4()), Err(RemoveError::NotFound)));
+        assert!(matches!(
+            queue.remove(Uuid::new_v4()),
+            Err(RemoveError::NotFound)
+        ));
     }
 
     #[test]
