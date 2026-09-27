@@ -3,7 +3,7 @@
     <div v-if="open" class="backdrop" @click="$emit('close')" />
     <aside class="drawer" :class="{ open }">
       <header class="drawer-header">
-        <h2>Batch-Warteliste ({{ batch.count }})</h2>
+        <h2>Batch-Warteliste ({{ batch.pendingCount }})</h2>
         <button class="close-btn" @click="$emit('close')">✕</button>
       </header>
 

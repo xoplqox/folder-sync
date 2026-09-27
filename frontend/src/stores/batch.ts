@@ -4,6 +4,11 @@ import type { BatchAction, BatchRun, QueueRequest } from "../types/batch";
 import type { ProgressEvent } from "../api/ws";
 import { useToastStore } from "./toast";
 
+interface FinishedActionRef {
+  group_name: string;
+  group_number: string;
+}
+
 interface BatchState {
   actions: BatchAction[];
   status: BatchRun["status"];
@@ -11,6 +16,8 @@ interface BatchState {
   error: string | null;
   lastSkippedConflicts: string[];
   lastCompleted: { succeeded: number; failed: number } | null;
+  /** Set (to a fresh object) whenever an action finishes successfully, so views can react to it. */
+  lastFinishedAction: FinishedActionRef | null;
 }
 
 function errorMessage(e: unknown): string {
@@ -25,9 +32,12 @@ export const useBatchStore = defineStore("batch", {
     error: null,
     lastSkippedConflicts: [],
     lastCompleted: null,
+    lastFinishedAction: null,
   }),
   getters: {
     count: (state) => state.actions.length,
+    /** Actions still needing attention (queued/running/failed) — excludes successfully done ones. */
+    pendingCount: (state) => state.actions.filter((a) => a.status !== "done").length,
     queuedCount: (state) => state.actions.filter((a) => a.status === "queued").length,
     isRunning: (state) => state.status === "running",
   },
@@ -37,6 +47,12 @@ export const useBatchStore = defineStore("batch", {
       this.status = run.status;
     },
     handleEvent(event: ProgressEvent) {
+      if (event.type === "action_finished" && event.status === "done") {
+        const action = this.actions.find((a) => a.id === event.action_id);
+        if (action) {
+          this.lastFinishedAction = { group_name: action.group_name, group_number: action.group_number };
+        }
+      }
       if (event.type === "run_completed") {
         this.lastCompleted = { succeeded: event.succeeded, failed: event.failed };
         const toast = useToastStore();

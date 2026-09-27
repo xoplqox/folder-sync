@@ -2,22 +2,28 @@
   <main class="tree-view">
     <Breadcrumb :current="`${name}_${number}`" />
 
-    <div class="mode-toggle" role="group" aria-label="Vergleichsmodus">
-      <button
-        class="mode-btn"
-        :class="{ active: config.comparisonMode === 'name_size' }"
-        :disabled="config.loading"
-        @click="setMode('name_size')"
-      >
-        Name + Größe
-      </button>
-      <button
-        class="mode-btn"
-        :class="{ active: config.comparisonMode === 'name_size_hash' }"
-        :disabled="config.loading"
-        @click="setMode('name_size_hash')"
-      >
-        + Hash (erweitert)
+    <div class="toolbar">
+      <div class="mode-toggle" role="group" aria-label="Vergleichsmodus">
+        <button
+          class="mode-btn"
+          :class="{ active: config.comparisonMode === 'name_size' }"
+          :disabled="config.loading"
+          @click="setMode('name_size')"
+        >
+          Name + Größe
+        </button>
+        <button
+          class="mode-btn"
+          :class="{ active: config.comparisonMode === 'name_size_hash' }"
+          :disabled="config.loading"
+          @click="setMode('name_size_hash')"
+        >
+          + Hash (erweitert)
+        </button>
+      </div>
+
+      <button class="reload-btn" title="Verzeichnisbaum neu laden" :disabled="tree.loading" @click="load">
+        ⟳ Neu laden
       </button>
     </div>
 
@@ -38,9 +44,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, watch } from "vue";
+import { onMounted, onUnmounted, watch } from "vue";
 import { useTreeStore } from "../stores/tree";
 import { useConfigStore } from "../stores/config";
+import { useBatchStore } from "../stores/batch";
 import type { ComparisonMode } from "../types/config";
 import Breadcrumb from "../components/Breadcrumb.vue";
 import TreeNode from "../components/TreeNode.vue";
@@ -52,6 +59,7 @@ const props = defineProps<{
 
 const tree = useTreeStore();
 const config = useConfigStore();
+const batch = useBatchStore();
 
 async function load() {
   if (!config.loaded) {
@@ -69,6 +77,20 @@ async function setMode(mode: ComparisonMode) {
   await config.update({ comparison_mode: mode });
   await tree.fetch(props.name, props.number, mode);
 }
+
+// When a batch action for this drive group finishes successfully, refresh
+// the tree so the affected file/folder's status updates in the view.
+// Debounced, since several actions from the same batch can finish close together.
+let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+watch(
+  () => batch.lastFinishedAction,
+  (ref) => {
+    if (!ref || ref.group_name !== props.name || ref.group_number !== props.number) return;
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(load, 400);
+  },
+);
+onUnmounted(() => clearTimeout(refreshTimer));
 </script>
 
 <style scoped>
@@ -86,12 +108,37 @@ async function setMode(mode: ComparisonMode) {
   color: var(--state-missing);
 }
 
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
 .mode-toggle {
   display: inline-flex;
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
-  margin-bottom: 1.25rem;
+}
+
+.reload-btn {
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  padding: 0.45rem 0.75rem;
+}
+
+.reload-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.reload-btn:disabled {
+  opacity: 0.5;
 }
 
 .mode-btn {

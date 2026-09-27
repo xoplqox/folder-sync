@@ -8,7 +8,7 @@
 
     <button class="batch-toggle" @click="drawerOpen = !drawerOpen">
       Batch
-      <span v-if="batch.count > 0" class="badge">{{ batch.count }}</span>
+      <span v-if="batch.pendingCount > 0" class="badge">{{ batch.pendingCount }}</span>
     </button>
 
     <BatchQueueDrawer :open="drawerOpen" @close="drawerOpen = false" />
