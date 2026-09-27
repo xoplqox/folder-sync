@@ -14,13 +14,18 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { useBatchStore } from "./stores/batch";
+import { useConfigStore } from "./stores/config";
+import { connectBatchEvents } from "./api/ws";
 import BatchQueueDrawer from "./components/BatchQueueDrawer.vue";
 
 const batch = useBatchStore();
+const config = useConfigStore();
 const drawerOpen = ref(false);
 
 onMounted(() => {
   batch.fetch();
+  config.fetch();
+  connectBatchEvents();
 });
 </script>
 

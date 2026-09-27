@@ -17,7 +17,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
     throw new ApiError(message);
   }
-  return (await res.json()) as T;
+  if (res.status === 204 || res.headers.get("content-length") === "0") {
+    return undefined as T;
+  }
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 export function getDrives(): Promise<DrivesResponse> {
@@ -73,6 +77,14 @@ export function removeBatchGroup(groupId: string): Promise<BatchRun> {
   return request<BatchRun>(`/api/batch/actions?group_id=${encodeURIComponent(groupId)}`, {
     method: "DELETE",
   });
+}
+
+export function startBatch(): Promise<void> {
+  return request<void>("/api/batch/start", { method: "POST" });
+}
+
+export function cancelBatch(): Promise<void> {
+  return request<void>("/api/batch/cancel", { method: "POST" });
 }
 
 export { ApiError };

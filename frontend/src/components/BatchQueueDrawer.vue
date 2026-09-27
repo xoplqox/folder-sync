@@ -30,6 +30,26 @@
           </ul>
         </section>
       </div>
+
+      <footer v-if="batch.actions.length > 0" class="drawer-footer">
+        <p v-if="batch.lastCompleted" class="summary">
+          Letzter Lauf: {{ batch.lastCompleted.succeeded }} erfolgreich, {{ batch.lastCompleted.failed }} fehlgeschlagen.
+        </p>
+        <p v-if="config.readOnly" class="readonly-note">
+          Read-Only-Modus: Ausführen ist deaktiviert.
+        </p>
+        <div class="footer-actions">
+          <button
+            v-if="!batch.isRunning"
+            class="btn btn-primary"
+            :disabled="batch.queuedCount === 0 || config.readOnly"
+            @click="start"
+          >
+            Batch starten ({{ batch.queuedCount }})
+          </button>
+          <button v-else class="btn" @click="cancel">Abbrechen</button>
+        </div>
+      </footer>
     </aside>
   </Teleport>
 </template>
@@ -37,6 +57,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useBatchStore } from "../stores/batch";
+import { useConfigStore } from "../stores/config";
 import BatchActionRow from "./BatchActionRow.vue";
 import type { BatchAction } from "../types/batch";
 
@@ -49,6 +70,7 @@ defineEmits<{
 }>();
 
 const batch = useBatchStore();
+const config = useConfigStore();
 
 interface Group {
   id: string | null;
@@ -80,6 +102,14 @@ function remove(id: string) {
 
 function removeGroup(id: string) {
   batch.removeGroup(id);
+}
+
+function start() {
+  batch.start();
+}
+
+function cancel() {
+  batch.cancel();
 }
 </script>
 
@@ -174,5 +204,30 @@ function removeGroup(id: string) {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.drawer-footer {
+  border-top: 1px solid var(--border);
+  padding: 1rem 1.25rem;
+}
+
+.summary {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0 0 0.5rem;
+}
+
+.readonly-note {
+  font-size: 0.8rem;
+  color: var(--state-differs);
+  margin: 0 0 0.5rem;
+}
+
+.footer-actions {
+  display: flex;
+}
+
+.footer-actions .btn {
+  width: 100%;
 }
 </style>

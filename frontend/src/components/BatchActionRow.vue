@@ -5,6 +5,11 @@
       <div class="path">{{ action.kind.rel_path }}</div>
       <div class="detail">{{ description }}</div>
       <div v-if="action.error" class="error">{{ action.error }}</div>
+      <ProgressBar
+        v-if="action.status === 'running' && action.bytes_total"
+        :done="action.bytes_done"
+        :total="action.bytes_total"
+      />
     </div>
     <span class="status-badge">{{ statusLabel }}</span>
     <button
@@ -21,6 +26,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { BatchAction } from "../types/batch";
+import ProgressBar from "./ProgressBar.vue";
 
 const props = defineProps<{
   action: BatchAction;

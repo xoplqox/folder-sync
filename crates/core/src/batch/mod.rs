@@ -1,8 +1,12 @@
 pub mod action;
+pub mod executor;
 pub mod plan;
+pub mod progress;
 
 pub use action::{ActionKind, ActionStatus, BatchAction};
+pub use executor::BatchExecutor;
 pub use plan::{find_node, plan_delete_file, plan_delete_folder, plan_resolve_conflict, plan_sync_file, plan_sync_folder, FolderPlan, PlanError};
+pub use progress::{NullSink, ProgressEvent, ProgressSink};
 
 use std::sync::RwLock;
 
@@ -88,6 +92,46 @@ impl BatchQueue {
     pub fn remove_group(&self, group_id: Uuid) {
         let mut run = self.run.write().expect("batch queue lock poisoned");
         run.actions.retain(|a| a.group_id != Some(group_id) || a.status == ActionStatus::Running);
+    }
+
+    /// Returns (and does not remove) the first `Queued` action, if any, in
+    /// queue order — used by the executor to pick the next action to run.
+    pub fn next_queued(&self) -> Option<BatchAction> {
+        self.run
+            .read()
+            .expect("batch queue lock poisoned")
+            .actions
+            .iter()
+            .find(|a| a.status == ActionStatus::Queued)
+            .cloned()
+    }
+
+    pub fn mark_running(&self, id: Uuid) {
+        if let Some(a) = self.run.write().expect("batch queue lock poisoned").actions.iter_mut().find(|a| a.id == id) {
+            a.status = ActionStatus::Running;
+        }
+    }
+
+    pub fn set_progress(&self, id: Uuid, bytes_done: u64, bytes_total: u64) {
+        if let Some(a) = self.run.write().expect("batch queue lock poisoned").actions.iter_mut().find(|a| a.id == id) {
+            a.bytes_done = bytes_done;
+            a.bytes_total = Some(bytes_total);
+        }
+    }
+
+    pub fn mark_finished(&self, id: Uuid, status: ActionStatus, error: Option<String>) {
+        if let Some(a) = self.run.write().expect("batch queue lock poisoned").actions.iter_mut().find(|a| a.id == id) {
+            a.status = status;
+            a.error = error;
+        }
+    }
+
+    pub fn set_run_status(&self, status: RunStatus) {
+        self.run.write().expect("batch queue lock poisoned").status = status;
+    }
+
+    pub fn run_status(&self) -> RunStatus {
+        self.run.read().expect("batch queue lock poisoned").status
     }
 }
 

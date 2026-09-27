@@ -4,11 +4,13 @@ use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use folder_sync_core::batch::{
     find_node, plan_delete_file, plan_delete_folder, plan_sync_file, plan_sync_folder, ActionKind, BatchAction, BatchRun,
+    ProgressEvent, ProgressSink, RunStatus,
 };
 use folder_sync_core::config::ComparisonMode;
 use folder_sync_core::drive::scan_drives;
 use folder_sync_core::tree::build_merged_tree;
 use serde::{Deserialize, Serialize};
+use tokio::sync::broadcast;
 use uuid::Uuid;
 
 use crate::error::ApiError;
@@ -19,10 +21,49 @@ pub fn router() -> Router<AppState> {
         .route("/api/batch", get(get_batch))
         .route("/api/batch/actions", post(queue_action).delete(remove_by_group))
         .route("/api/batch/actions/:id", delete(remove_action))
+        .route("/api/batch/start", post(start_batch))
+        .route("/api/batch/cancel", post(cancel_batch))
 }
 
 async fn get_batch(State(state): State<AppState>) -> Json<BatchRun> {
     Json(state.0.batch_queue.snapshot())
+}
+
+/// Fans batch progress events out to connected WebSocket clients via the
+/// shared broadcast channel. `send` returning an error just means nobody is
+/// currently listening, which is fine — not a failure of the batch run.
+struct BroadcastSink(broadcast::Sender<ProgressEvent>);
+
+impl ProgressSink for BroadcastSink {
+    fn emit(&self, event: ProgressEvent) {
+        let _ = self.0.send(event);
+    }
+}
+
+async fn start_batch(State(state): State<AppState>) -> Result<StatusCode, ApiError> {
+    if state.0.read_only {
+        return Err(ApiError::forbidden("read-only mode: batch execution is disabled"));
+    }
+    if state.0.batch_queue.run_status() == RunStatus::Running {
+        return Err(ApiError {
+            status: StatusCode::CONFLICT,
+            message: "a batch run is already in progress".into(),
+        });
+    }
+
+    let scan_root = state.config().scan_root;
+    let executor = state.0.batch_executor.clone();
+    let sink = BroadcastSink(state.0.progress_tx.clone());
+    tokio::task::spawn_blocking(move || {
+        executor.run(&scan_root, &sink);
+    });
+
+    Ok(StatusCode::ACCEPTED)
+}
+
+async fn cancel_batch(State(state): State<AppState>) -> StatusCode {
+    state.0.batch_executor.cancel();
+    StatusCode::ACCEPTED
 }
 
 #[derive(Deserialize)]

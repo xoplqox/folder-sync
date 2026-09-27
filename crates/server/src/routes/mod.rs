@@ -3,6 +3,7 @@ mod config;
 mod drives;
 mod health;
 mod tree;
+mod ws;
 
 use axum::Router;
 
@@ -15,4 +16,5 @@ pub fn api_router() -> Router<AppState> {
         .merge(drives::router())
         .merge(tree::router())
         .merge(batch::router())
+        .merge(ws::router())
 }
